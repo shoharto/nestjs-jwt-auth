@@ -9,4 +9,9 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('db-status')
+  getDatabaseStatus(): Promise<string> {
+    return this.appService.getDatabaseStatus();
+  }
 }
