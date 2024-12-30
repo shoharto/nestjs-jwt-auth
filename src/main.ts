@@ -10,6 +10,13 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
+  // Add CORS configuration
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+
   const configService = app.get(ConfigService);
   const globalPrefix = configService.get<string>('env.apiPrefix') ?? 'api';
   app.setGlobalPrefix(globalPrefix);
@@ -18,19 +25,31 @@ async function bootstrap() {
   const swaggerConfig = configService.get('env.swagger');
   const logger = new Logger('Bootstrap');
 
-  logger.debug('Swagger config:', swaggerConfig);
-
   if (swaggerConfig?.enabled) {
     const config = new DocumentBuilder()
       .setTitle('NestJS JWT Auth API')
       .setDescription('The NestJS JWT Auth API description')
       .setVersion('1.0')
-      .addBearerAuth()
-      .addTag('auth')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+          in: 'header',
+        },
+        'JWT-auth',
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup(swaggerConfig.path, app, document);
+    SwaggerModule.setup(swaggerConfig.path, app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        security: [{ 'JWT-auth': [] }],
+      },
+    });
 
     logger.log(`Swagger UI enabled at path: ${swaggerConfig.path}`);
   } else {

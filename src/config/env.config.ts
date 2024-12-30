@@ -9,6 +9,12 @@ interface EnvironmentConfig {
     enabled: boolean;
     path: string;
   };
+  jwt: {
+    secret: string;
+    expiresIn: string;
+    refreshSecret: string;
+    refreshExpiresIn: string;
+  };
 }
 
 export default registerAs('env', (): EnvironmentConfig => {
@@ -26,6 +32,13 @@ export default registerAs('env', (): EnvironmentConfig => {
     swagger: {
       enabled: process.env.SWAGGER_ENABLED !== 'false',
       path: process.env.SWAGGER_PATH ?? 'api/docs',
+    },
+    jwt: {
+      secret: process.env.JWT_SECRET ?? 'your-secret-key',
+      expiresIn: '30m',
+      refreshSecret:
+        process.env.JWT_REFRESH_SECRET ?? 'your-refresh-secret-key',
+      refreshExpiresIn: '7d',
     },
   };
 });
