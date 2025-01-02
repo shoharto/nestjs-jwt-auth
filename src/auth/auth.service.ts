@@ -132,10 +132,18 @@ export class AuthService {
     const user = await this.usersService.findByEmailVerificationToken(token);
 
     if (!user || !user.emailVerificationTokenExpiresAt) {
+      this.logger.warn(`Invalid verification token attempt: ${token}`);
       throw new UnauthorizedException('Invalid verification token');
     }
 
-    if (user.emailVerificationTokenExpiresAt < new Date()) {
+    const now = new Date();
+    this.logger.debug('Token verification times:', {
+      expiresAt: user.emailVerificationTokenExpiresAt,
+      currentTime: now,
+      isExpired: user.emailVerificationTokenExpiresAt < now,
+    });
+
+    if (user.emailVerificationTokenExpiresAt < now) {
       throw new UnauthorizedException('Verification token has expired');
     }
 
