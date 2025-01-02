@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from './common/pipes/validation.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -55,6 +56,8 @@ async function bootstrap() {
   } else {
     logger.warn('Swagger UI is disabled');
   }
+
+  app.useGlobalPipes(new ValidationPipe());
 
   const port = configService.get<number>('env.port') ?? 3000;
   await app.listen(port);

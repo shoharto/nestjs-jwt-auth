@@ -1,4 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserProps } from './entities/user.entity';
@@ -26,5 +30,31 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async findByEmailVerificationToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { emailVerificationToken: token },
+    });
+  }
+
+  async markEmailAsVerified(userId: string): Promise<User> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationTokenExpiresAt = undefined;
+
+    return this.usersRepository.save(user);
+  }
+
+  async save(user: User): Promise<User> {
+    return this.usersRepository.save(user);
   }
 }

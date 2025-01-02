@@ -5,6 +5,8 @@ export interface UserProps {
   email: string;
   password: string;
   name?: string;
+  emailVerificationToken?: string;
+  emailVerificationTokenExpiresAt?: Date;
 }
 
 @Entity('users')
@@ -20,6 +22,15 @@ export class User {
 
   @Column({ nullable: true })
   name: string = '';
+
+  @Column({ default: false })
+  isEmailVerified: boolean = false;
+
+  @Column({ nullable: true })
+  emailVerificationToken?: string;
+
+  @Column({ nullable: true })
+  emailVerificationTokenExpiresAt?: Date;
 
   constructor(props?: UserProps) {
     if (props) {

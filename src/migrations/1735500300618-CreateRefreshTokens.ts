@@ -4,19 +4,22 @@ export class CreateRefreshTokens1735500300618 implements MigrationInterface {
   name = 'CreateRefreshTokens1735500300618';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create users table first
+    // Create users table with all columns
     await queryRunner.query(`
       CREATE TABLE "users" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "email" character varying NOT NULL,
         "password" character varying NOT NULL,
         "name" character varying,
+        "isEmailVerified" boolean NOT NULL DEFAULT false,
+        "emailVerificationToken" character varying,
+        "emailVerificationTokenExpiresAt" TIMESTAMP,
         CONSTRAINT "UQ_users_email" UNIQUE ("email"),
         CONSTRAINT "PK_users" PRIMARY KEY ("id")
       )
     `);
 
-    // Then create refresh_tokens table with foreign key
+    // Create refresh_tokens table
     await queryRunner.query(`
       CREATE TABLE "refresh_tokens" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),

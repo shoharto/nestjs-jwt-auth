@@ -7,6 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { RefreshTokenService } from './refresh-token.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
+import { v4 as uuidv4 } from 'uuid';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +19,7 @@ export class AuthService {
     private jwtService: JwtService,
     private refreshTokenService: RefreshTokenService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -28,13 +31,30 @@ export class AuthService {
       throw new UnauthorizedException('Email already exists');
     }
 
-    const user = await this.usersService.create(registerDto);
+    const emailVerificationToken = uuidv4();
+    const emailVerificationTokenExpiresAt = new Date();
+    emailVerificationTokenExpiresAt.setHours(
+      emailVerificationTokenExpiresAt.getHours() + 24,
+    );
+
+    const user = await this.usersService.create({
+      ...registerDto,
+      emailVerificationToken,
+      emailVerificationTokenExpiresAt,
+    });
+
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      emailVerificationToken,
+    );
+
     const token = this.generateToken(user);
 
     this.logger.log(`User registered successfully: ${user.email}`);
     return {
       user: this.sanitizeUser(user),
       token,
+      message: 'Please check your email to verify your account',
     };
   }
 
@@ -106,5 +126,55 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.usersService.findByEmailVerificationToken(token);
+
+    if (!user || !user.emailVerificationTokenExpiresAt) {
+      throw new UnauthorizedException('Invalid verification token');
+    }
+
+    if (user.emailVerificationTokenExpiresAt < new Date()) {
+      throw new UnauthorizedException('Verification token has expired');
+    }
+
+    await this.usersService.markEmailAsVerified(user.id);
+
+    return {
+      message: 'Email verified successfully',
+    };
+  }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      throw new UnauthorizedException('Email is already verified');
+    }
+
+    const emailVerificationToken = uuidv4();
+    const emailVerificationTokenExpiresAt = new Date();
+    emailVerificationTokenExpiresAt.setHours(
+      emailVerificationTokenExpiresAt.getHours() + 24,
+    );
+
+    user.emailVerificationToken = emailVerificationToken;
+    user.emailVerificationTokenExpiresAt = emailVerificationTokenExpiresAt;
+
+    await this.usersService.save(user);
+
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      emailVerificationToken,
+    );
+
+    return {
+      message: 'Verification email has been resent',
+    };
   }
 }

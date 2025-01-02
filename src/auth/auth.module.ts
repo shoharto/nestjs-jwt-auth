@@ -11,6 +11,8 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { RefreshTokenService } from './refresh-token.service';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { EmailModule } from '../email/email.module';
+import { EmailVerifiedGuard } from './guards/email-verified.guard';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
       }),
     }),
     TypeOrmModule.forFeature([RefreshToken]),
+    EmailModule,
   ],
   providers: [
     AuthService,
@@ -35,7 +38,9 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
+    EmailVerifiedGuard,
   ],
   controllers: [AuthController],
+  exports: [JwtStrategy, EmailVerifiedGuard, RefreshTokenService],
 })
 export class AuthModule {}
