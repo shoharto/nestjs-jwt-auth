@@ -32,6 +32,12 @@ export class User {
   @Column({ nullable: true })
   emailVerificationTokenExpiresAt?: Date;
 
+  @Column({ nullable: true })
+  passwordResetToken?: string;
+
+  @Column({ nullable: true })
+  passwordResetTokenExpiresAt?: Date;
+
   constructor(props?: UserProps) {
     if (props) {
       this.email = props.email;
@@ -40,8 +46,11 @@ export class User {
     }
   }
 
-  static create(props: UserProps): User {
-    return new User(props);
+  static async create(props: UserProps): Promise<User> {
+    const user = new User();
+    Object.assign(user, props);
+    user.password = await bcrypt.hash(props.password, 10);
+    return user;
   }
 
   @BeforeInsert()

@@ -48,4 +48,40 @@ export class EmailService {
       return false;
     }
   }
+
+  async sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
+    const fromEmail = this.configService.get<string>('EMAIL_FROM');
+    if (!fromEmail) {
+      throw new Error('EMAIL_FROM is not defined');
+    }
+
+    const baseUrl = this.configService.get<string>('APP_URL');
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+    const mail = {
+      to: email,
+      from: fromEmail,
+      subject: 'Password Reset Request',
+      text: `Reset your password by clicking this link: ${resetUrl}`,
+      html: `
+        <div>
+          <h1>Password Reset</h1>
+          <p>Click the link below to reset your password:</p>
+          <a href="${resetUrl}">Reset Password</a>
+        </div>
+      `,
+    };
+
+    try {
+      await SendGrid.send(mail as any);
+      this.logger.log(`Password reset email sent to ${email}`);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send password reset email to ${email}`,
+        error,
+      );
+      return false;
+    }
+  }
 }

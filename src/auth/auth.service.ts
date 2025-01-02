@@ -185,4 +185,78 @@ export class AuthService {
       message: 'Verification email has been resent',
     };
   }
+
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const resetToken = uuidv4();
+    const resetTokenExpiresAt = new Date();
+    resetTokenExpiresAt.setHours(resetTokenExpiresAt.getHours() + 1);
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetTokenExpiresAt = resetTokenExpiresAt;
+    await this.usersService.save(user);
+
+    await this.emailService.sendPasswordResetEmail(email, resetToken);
+
+    return {
+      message: 'Password reset instructions sent to email',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.usersService.findByPasswordResetToken(token);
+    if (!user || !user.passwordResetTokenExpiresAt) {
+      throw new UnauthorizedException('Invalid reset token');
+    }
+
+    if (user.passwordResetTokenExpiresAt < new Date()) {
+      throw new UnauthorizedException('Reset token has expired');
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpiresAt = undefined;
+    await this.usersService.save(user);
+
+    return {
+      message: 'Password reset successful',
+    };
+  }
+
+  async logout(refreshToken: string) {
+    await this.refreshTokenService.revokeRefreshToken(refreshToken);
+    return {
+      message: 'Logged out successfully',
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await this.usersService.save(user);
+
+    return {
+      message: 'Password changed successfully',
+    };
+  }
 }

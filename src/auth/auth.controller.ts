@@ -19,6 +19,10 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from './decorators/public.decorator';
 import { EmailVerifiedGuard } from './guards/email-verified.guard';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { GetUser } from './decorators/get-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -94,5 +98,58 @@ export class AuthController {
   })
   async resendVerification(@Body('email') email: string) {
     return this.authService.resendVerificationEmail(email);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent',
+  })
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logged out successfully',
+  })
+  async logout(@Body('refreshToken') refreshToken: string) {
+    return this.authService.logout(refreshToken);
+  }
+
+  @Post('change-password')
+  @UseGuards(EmailVerifiedGuard)
+  @ApiOperation({ summary: 'Change password' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+  })
+  async changePassword(
+    @GetUser() user: User,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(
+      user.id,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+    );
   }
 }

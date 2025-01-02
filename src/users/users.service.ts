@@ -20,8 +20,8 @@ export class UsersService {
 
   async create(userData: UserProps): Promise<User> {
     try {
-      const user = User.create(userData);
-      return await this.usersRepository.save(user);
+      const user = await User.create(userData);
+      return this.usersRepository.save(user);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error) {
         if (error.code === '23505') {
@@ -32,17 +32,24 @@ export class UsersService {
     }
   }
 
+  async findById(id: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { id } });
+  }
+
   async findByEmailVerificationToken(token: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { emailVerificationToken: token },
     });
   }
 
-  async markEmailAsVerified(userId: string): Promise<User> {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
+  async findByPasswordResetToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { passwordResetToken: token },
     });
+  }
 
+  async markEmailAsVerified(userId: string): Promise<User> {
+    const user = await this.findById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
