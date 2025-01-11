@@ -52,9 +52,12 @@ export class AuthService {
 
     this.logger.log(`User registered successfully: ${user.email}`);
     return {
-      user: this.sanitizeUser(user),
-      token,
+      status: true,
       message: 'Please check your email to verify your account',
+      data: {
+        user: this.sanitizeUser(user),
+        token,
+      },
     };
   }
 
@@ -65,9 +68,13 @@ export class AuthService {
       await this.refreshTokenService.createRefreshToken(user);
 
     return {
-      user: this.sanitizeUser(user),
-      accessToken,
-      refreshToken: refreshToken.token,
+      status: true,
+      message: 'Login successful',
+      data: {
+        user: this.sanitizeUser(user),
+        accessToken,
+        refreshToken: refreshToken.token,
+      },
     };
   }
 
@@ -76,15 +83,18 @@ export class AuthService {
       await this.refreshTokenService.verifyRefreshToken(token);
     const accessToken = this.generateAccessToken(refreshToken.user);
 
-    // Optional: Create new refresh token and revoke old one
     await this.refreshTokenService.revokeRefreshToken(token);
     const newRefreshToken = await this.refreshTokenService.createRefreshToken(
       refreshToken.user,
     );
 
     return {
-      accessToken,
-      refreshToken: newRefreshToken.token,
+      status: true,
+      message: 'Token refreshed successfully',
+      data: {
+        accessToken,
+        refreshToken: newRefreshToken.token,
+      },
     };
   }
 
@@ -150,7 +160,9 @@ export class AuthService {
     await this.usersService.markEmailAsVerified(user.id);
 
     return {
+      status: true,
       message: 'Email verified successfully',
+      data: null,
     };
   }
 
@@ -182,7 +194,9 @@ export class AuthService {
     );
 
     return {
+      status: true,
       message: 'Verification email has been resent',
+      data: null,
     };
   }
 
@@ -203,7 +217,9 @@ export class AuthService {
     await this.emailService.sendPasswordResetEmail(email, resetToken);
 
     return {
+      status: true,
       message: 'Password reset instructions sent to email',
+      data: null,
     };
   }
 
@@ -223,14 +239,18 @@ export class AuthService {
     await this.usersService.save(user);
 
     return {
+      status: true,
       message: 'Password reset successful',
+      data: null,
     };
   }
 
   async logout(refreshToken: string) {
     await this.refreshTokenService.revokeRefreshToken(refreshToken);
     return {
+      status: true,
       message: 'Logged out successfully',
+      data: null,
     };
   }
 
@@ -256,7 +276,9 @@ export class AuthService {
     await this.usersService.save(user);
 
     return {
+      status: true,
       message: 'Password changed successfully',
+      data: null,
     };
   }
 }

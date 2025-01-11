@@ -1,5 +1,4 @@
 import {
-  Controller,
   Post,
   Body,
   HttpCode,
@@ -8,12 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -23,9 +17,12 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUser } from './decorators/get-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { ApiVersionController } from '../common/decorators/version.decorator';
 
-@ApiTags('auth')
-@Controller('auth')
+@ApiVersionController({
+  path: 'auth',
+  tag: 'auth',
+})
 @ApiBearerAuth('JWT-auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

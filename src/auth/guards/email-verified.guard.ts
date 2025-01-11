@@ -18,7 +18,7 @@ export class EmailVerifiedGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     // Handle refresh token endpoint differently
-    if (request.path === '/api/auth/refresh') {
+    if (request.path === '/api/v1/auth/refresh') {
       const refreshToken = request.body.refreshToken;
       if (!refreshToken) {
         throw new UnauthorizedException('Refresh token is required');

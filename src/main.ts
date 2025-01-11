@@ -4,6 +4,8 @@ import { Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from './common/pipes/validation.pipe';
+import { VersioningType } from '@nestjs/common';
+import { API_VERSION } from './common/constants/api-versions.constant';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -26,11 +28,18 @@ async function bootstrap() {
   const swaggerConfig = configService.get('env.swagger');
   const logger = new Logger('Bootstrap');
 
+  // Enable API versioning
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: API_VERSION.V1,
+    prefix: 'api/v',
+  });
+
   if (swaggerConfig?.enabled) {
     const config = new DocumentBuilder()
       .setTitle('NestJS JWT Auth API')
       .setDescription('The NestJS JWT Auth API description')
-      .setVersion('1.0')
+      .setVersion(API_VERSION.V1)
       .addBearerAuth(
         {
           type: 'http',

@@ -1,17 +1,15 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { Get, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
+import { ApiVersionController } from '../common/decorators/version.decorator';
 
-@ApiTags('users')
-@Controller('users')
+@ApiVersionController({
+  path: 'users',
+  tag: 'users',
+})
 @ApiBearerAuth('JWT-auth')
 @UseGuards(EmailVerifiedGuard)
 export class UsersController {
@@ -30,9 +28,13 @@ export class UsersController {
   async getProfile(@GetUser() user: User) {
     const fullUser = await this.usersService.findByEmail(user.email);
     return {
-      id: fullUser?.id,
-      email: fullUser?.email,
-      name: fullUser?.name,
+      status: true,
+      message: 'Profile retrieved successfully',
+      data: {
+        id: fullUser?.id,
+        email: fullUser?.email,
+        name: fullUser?.name,
+      },
     };
   }
 }

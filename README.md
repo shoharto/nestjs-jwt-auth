@@ -72,6 +72,8 @@ npm run start:prod
 ```
 
 ## API Endpoints
+All endpoints are versioned and prefixed with `/api/v1/`:
+
 
 ### Authentication
 - `POST /api/auth/register` - Register a new user
