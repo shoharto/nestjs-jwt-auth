@@ -36,7 +36,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({
     status: 201,
-    description: 'User successfully registered',
+    description: 'User registered successfully',
     type: AuthResponseDto,
   })
   @ApiResponse({

@@ -24,10 +24,6 @@ async function bootstrap() {
   const globalPrefix = configService.get<string>('env.apiPrefix') ?? 'api';
   app.setGlobalPrefix(globalPrefix);
 
-  // Swagger configuration
-  const swaggerConfig = configService.get('env.swagger');
-  const logger = new Logger('Bootstrap');
-
   // Enable API versioning
   app.enableVersioning({
     type: VersioningType.URI,
@@ -35,6 +31,11 @@ async function bootstrap() {
     prefix: 'api/v',
   });
 
+  const swaggerConfig = configService.get('env.swagger');
+  const logger = new Logger('Bootstrap');
+  const port = configService.get<number>('env.port') ?? 3000;
+
+  // Swagger configuration
   if (swaggerConfig?.enabled) {
     const config = new DocumentBuilder()
       .setTitle('NestJS JWT Auth API')
@@ -61,24 +62,27 @@ async function bootstrap() {
       },
     });
 
-    logger.log(`Swagger UI enabled at path: ${swaggerConfig.path}`);
+    logger.log(`📝 Swagger UI enabled at path: ${swaggerConfig.path}`);
   } else {
-    logger.warn('Swagger UI is disabled');
+    logger.warn('⚠️ Swagger UI is disabled');
   }
 
   app.useGlobalPipes(new ValidationPipe());
-
-  const port = configService.get<number>('env.port') ?? 3000;
   await app.listen(port);
 
+  // Updated logging with versioned API paths
   logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}/v${API_VERSION.V1}`,
   );
 
   if (swaggerConfig?.enabled) {
     logger.log(
-      `📚 Swagger documentation is available at: http://localhost:${port}/${swaggerConfig.path}`,
+      `📚 API Documentation available at: http://localhost:${port}/${swaggerConfig.path}`,
     );
   }
+
+  logger.log(`🔒 Environment: ${configService.get('NODE_ENV')}`);
+  logger.log(`🌐 API Version: v${API_VERSION.V1}`);
 }
+
 bootstrap();
