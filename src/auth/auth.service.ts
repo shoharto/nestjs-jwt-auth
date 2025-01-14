@@ -9,6 +9,11 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
+import { TOKEN_EXPIRATION } from './constants/token-expiration.constant';
+import { IAuthResponse } from './interfaces/auth-response.interface';
+import { ILoginResponse } from './interfaces/login-response.interface';
+import { IRegisterResponse } from './interfaces/register-response.interface';
+import { handleAuthError } from '../common/utils/error-handler.util';
 
 @Injectable()
 export class AuthService {
@@ -22,66 +27,80 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
-    const existingUser = await this.usersService.findByEmail(registerDto.email);
-    if (existingUser) {
-      this.logger.warn(
-        `Registration attempted with existing email: ${registerDto.email}`,
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<IAuthResponse<IRegisterResponse>> {
+    try {
+      const existingUser = await this.usersService.findByEmail(
+        registerDto.email,
       );
-      throw new UnauthorizedException('Email already exists');
+      if (existingUser) {
+        throw new UnauthorizedException('Email already exists');
+      }
+
+      const emailVerificationToken = uuidv4();
+      const emailVerificationTokenExpiresAt =
+        this.createExpirationDate('EMAIL_VERIFICATION');
+
+      const user = await this.usersService.create({
+        ...registerDto,
+        emailVerificationToken,
+        emailVerificationTokenExpiresAt,
+      });
+
+      await this.emailService.sendVerificationEmail(
+        user.email,
+        emailVerificationToken,
+      );
+
+      const token = this.generateToken(user);
+
+      return {
+        status: true,
+        message: 'Please check your email to verify your account',
+        data: {
+          user: user.toJSON(),
+          token,
+        },
+      };
+    } catch (error: unknown) {
+      handleAuthError(this.logger, error, 'Registration', registerDto.email);
     }
-
-    const emailVerificationToken = uuidv4();
-    const emailVerificationTokenExpiresAt = new Date();
-    emailVerificationTokenExpiresAt.setHours(
-      emailVerificationTokenExpiresAt.getHours() + 24,
-    );
-
-    const user = await this.usersService.create({
-      ...registerDto,
-      emailVerificationToken,
-      emailVerificationTokenExpiresAt,
-    });
-
-    await this.emailService.sendVerificationEmail(
-      user.email,
-      emailVerificationToken,
-    );
-
-    const token = this.generateToken(user);
-
-    this.logger.log(`User registered successfully: ${user.email}`);
-    return {
-      status: true,
-      message: 'Please check your email to verify your account',
-      data: {
-        user: this.sanitizeUser(user),
-        token,
-      },
-    };
   }
 
-  async login(loginDto: LoginDto) {
-    const user = await this.validateUser(loginDto);
-    const accessToken = this.generateAccessToken(user);
-    const refreshToken =
+  async login(loginDto: LoginDto): Promise<IAuthResponse<ILoginResponse>> {
+    try {
+      const user = await this.getUserOrThrow(undefined, loginDto.email);
+      const isValidUser = await this.validateUser(loginDto);
+
+      if (!isValidUser) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const accessToken = this.generateToken(user);
       await this.refreshTokenService.createRefreshToken(user);
 
-    return {
-      status: true,
-      message: 'Login successful',
-      data: {
-        user: this.sanitizeUser(user),
-        accessToken,
-        refreshToken: refreshToken.token,
-      },
-    };
+      return {
+        status: true,
+        message: 'Login successful',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          },
+          token: accessToken,
+        },
+      };
+    } catch (error: unknown) {
+      handleAuthError(this.logger, error, 'Login', loginDto.email);
+    }
   }
 
   async refreshToken(token: string) {
     const refreshToken =
       await this.refreshTokenService.verifyRefreshToken(token);
-    const accessToken = this.generateAccessToken(refreshToken.user);
+    const accessToken = this.generateToken(refreshToken.user);
 
     await this.refreshTokenService.revokeRefreshToken(token);
     const newRefreshToken = await this.refreshTokenService.createRefreshToken(
@@ -98,22 +117,14 @@ export class AuthService {
     };
   }
 
-  private generateToken(user: any) {
+  private generateToken(user: User, options?: { expiresIn?: string }): string {
     const payload = { email: user.email, sub: user.id };
-    return this.jwtService.sign(payload);
-  }
+    const secret = this.configService.get<string>('JWT_SECRET');
 
-  private sanitizeUser(user: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user;
-    return result;
-  }
-
-  private generateAccessToken(user: User): string {
-    const payload = { email: user.email, sub: user.id };
     return this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('env.jwt.secret'),
-      expiresIn: this.configService.get<string>('env.jwt.expiresIn'),
+      secret,
+      expiresIn:
+        options?.expiresIn || this.configService.get<string>('JWT_EXPIRES_IN'),
     });
   }
 
@@ -138,40 +149,40 @@ export class AuthService {
     return user;
   }
 
-  async verifyEmail(token: string) {
-    const user = await this.usersService.findByEmailVerificationToken(token);
+  async verifyEmail(token: string): Promise<IAuthResponse<null>> {
+    try {
+      const user = await this.usersService.findByEmailVerificationToken(token);
 
-    if (!user || !user.emailVerificationTokenExpiresAt) {
-      this.logger.warn(`Invalid verification token attempt: ${token}`);
-      throw new UnauthorizedException('Invalid verification token');
+      if (!user || !user.emailVerificationTokenExpiresAt) {
+        this.logger.warn(`Invalid verification token attempt: ${token}`);
+        throw new UnauthorizedException('Invalid verification token');
+      }
+
+      const now = new Date();
+      this.logger.debug('Token verification times:', {
+        expiresAt: user.emailVerificationTokenExpiresAt,
+        currentTime: now,
+        isExpired: user.emailVerificationTokenExpiresAt < now,
+      });
+
+      if (user.emailVerificationTokenExpiresAt < now) {
+        throw new UnauthorizedException('Verification token has expired');
+      }
+
+      await this.usersService.markEmailAsVerified(user.id);
+
+      return {
+        status: true,
+        message: 'Email verified successfully',
+        data: null,
+      };
+    } catch (error: unknown) {
+      handleAuthError(this.logger, error, 'Email Verification', undefined);
     }
-
-    const now = new Date();
-    this.logger.debug('Token verification times:', {
-      expiresAt: user.emailVerificationTokenExpiresAt,
-      currentTime: now,
-      isExpired: user.emailVerificationTokenExpiresAt < now,
-    });
-
-    if (user.emailVerificationTokenExpiresAt < now) {
-      throw new UnauthorizedException('Verification token has expired');
-    }
-
-    await this.usersService.markEmailAsVerified(user.id);
-
-    return {
-      status: true,
-      message: 'Email verified successfully',
-      data: null,
-    };
   }
 
-  async resendVerificationEmail(email: string) {
-    const user = await this.usersService.findByEmail(email);
-
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+  async resendVerificationEmail(email: string): Promise<IAuthResponse<null>> {
+    const user = await this.getUserOrThrow(undefined, email);
 
     if (user.isEmailVerified) {
       throw new UnauthorizedException('Email is already verified');
@@ -180,14 +191,14 @@ export class AuthService {
     const emailVerificationToken = uuidv4();
     const emailVerificationTokenExpiresAt = new Date();
     emailVerificationTokenExpiresAt.setHours(
-      emailVerificationTokenExpiresAt.getHours() + 24,
+      emailVerificationTokenExpiresAt.getHours() +
+        TOKEN_EXPIRATION.EMAIL_VERIFICATION,
     );
 
     user.emailVerificationToken = emailVerificationToken;
     user.emailVerificationTokenExpiresAt = emailVerificationTokenExpiresAt;
 
     await this.usersService.save(user);
-
     await this.emailService.sendVerificationEmail(
       user.email,
       emailVerificationToken,
@@ -200,15 +211,14 @@ export class AuthService {
     };
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+  async forgotPassword(email: string): Promise<IAuthResponse<null>> {
+    const user = await this.getUserOrThrow(undefined, email);
 
     const resetToken = uuidv4();
     const resetTokenExpiresAt = new Date();
-    resetTokenExpiresAt.setHours(resetTokenExpiresAt.getHours() + 1);
+    resetTokenExpiresAt.setHours(
+      resetTokenExpiresAt.getHours() + TOKEN_EXPIRATION.PASSWORD_RESET,
+    );
 
     user.passwordResetToken = resetToken;
     user.passwordResetTokenExpiresAt = resetTokenExpiresAt;
@@ -223,7 +233,10 @@ export class AuthService {
     };
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<IAuthResponse> {
     const user = await this.usersService.findByPasswordResetToken(token);
     if (!user || !user.passwordResetTokenExpiresAt) {
       throw new UnauthorizedException('Invalid reset token');
@@ -245,7 +258,7 @@ export class AuthService {
     };
   }
 
-  async logout(refreshToken: string) {
+  async logout(refreshToken: string): Promise<IAuthResponse> {
     await this.refreshTokenService.revokeRefreshToken(refreshToken);
     return {
       status: true,
@@ -258,11 +271,8 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
-  ) {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
+  ): Promise<IAuthResponse<null>> {
+    const user = await this.getUserOrThrow(userId);
 
     const isPasswordValid = await bcrypt.compare(
       currentPassword,
@@ -279,6 +289,40 @@ export class AuthService {
       status: true,
       message: 'Password changed successfully',
       data: null,
+    };
+  }
+
+  private async getUserOrThrow(userId?: string, email?: string): Promise<User> {
+    let user: User | null = null;
+
+    if (email) {
+      user = await this.usersService.findByEmail(email);
+    } else if (userId) {
+      user = await this.usersService.findById(userId);
+    }
+
+    if (!user) {
+      this.logger.warn(`User not found: ${email || userId}`);
+      throw new UnauthorizedException('User not found');
+    }
+    return user;
+  }
+
+  private createExpirationDate(type: keyof typeof TOKEN_EXPIRATION): Date {
+    const date = new Date();
+    date.setHours(date.getHours() + TOKEN_EXPIRATION[type]);
+    return date;
+  }
+
+  private createAuthResponse<T>(
+    status: boolean,
+    message: string,
+    data?: T | null,
+  ): IAuthResponse<T> {
+    return {
+      status,
+      message,
+      data: data ?? null,
     };
   }
 }

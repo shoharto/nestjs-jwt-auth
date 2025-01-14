@@ -37,4 +37,23 @@ export class UsersController {
       },
     };
   }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns list of all users',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Email not verified',
+  })
+  async getAllUsers() {
+    const users = await this.usersService.findAll();
+    return {
+      status: true,
+      message: 'Users retrieved successfully',
+      data: users,
+    };
+  }
 }

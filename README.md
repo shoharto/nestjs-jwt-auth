@@ -1,5 +1,3 @@
-
-
 # NestJS JWT Authentication API
 
 A robust authentication system built with NestJS, featuring JWT authentication, email verification, and refresh tokens.
@@ -12,7 +10,7 @@ A robust authentication system built with NestJS, featuring JWT authentication, 
 - Refresh Tokens
 - Swagger API Documentation
 - TypeORM with PostgreSQL
-- SendGrid Email Integration
+- Multiple Email Service Providers (SendGrid, Brevo)
 
 ## Prerequisites
 
@@ -55,6 +53,13 @@ EMAIL_FROM=your_verified_sender@example.com
 
 # App
 APP_URL=http://localhost:3000
+
+# Email Configuration
+EMAIL_PROVIDER=sendgrid  # or 'brevo'
+SENDGRID_API_KEY=your_sendgrid_api_key
+BREVO_API_KEY=your_brevo_api_key
+EMAIL_FROM=your_verified_sender@example.com
+EMAIL_FROM_NAME=Your App Name
 ```
 
 4. Run database migrations
@@ -76,18 +81,19 @@ All endpoints are versioned and prefixed with `/api/v1/`:
 
 
 ### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/refresh` - Refresh access token
-- `GET /api/auth/verify-email` - Verify email address
-- `POST /api/auth/resend-verification` - Resend verification email
-- `POST /api/auth/forgot-password` - Request password reset
-- `POST /api/auth/reset-password` - Reset password
-- `POST /api/auth/logout` - Logout user
-- `POST /api/auth/change-password` - Change password
+- `POST /api/v1/auth/register` - Register a new user
+- `POST /api/v1/auth/login` - Login user
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `GET /api/v1/auth/verify-email` - Verify email address
+- `POST /api/v1/auth/resend-verification` - Resend verification email
+- `POST /api/v1/auth/forgot-password` - Request password reset
+- `POST /api/v1/auth/reset-password` - Reset password
+- `POST /api/v1/auth/logout` - Logout user
+- `POST /api/v1/auth/change-password` - Change password
 
 ### Users
-- `GET /api/users/profile` - Get user profile
+- `GET /api/v1/users/profile` - Get user profile
+- `GET /api/v1/users` - Get all users
 
 ## API Documentation
 

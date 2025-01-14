@@ -1,16 +1,14 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
-  @ApiProperty({ example: 'bayes@example.com' })
   @IsEmail()
-  email: string = '';
+  @ApiProperty({ example: 'user@example.com' })
+  email!: string;
 
-  @ApiProperty({
-    example: 'password123',
-    description: 'Password must be at least 8 characters long',
-  })
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  password: string = '';
+  @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)
+  @ApiProperty({ example: 'Password123' })
+  password!: string;
 }

@@ -64,4 +64,17 @@ export class UsersService {
   async save(user: User): Promise<User> {
     return this.usersRepository.save(user);
   }
+
+  async findAll(): Promise<User[]> {
+    return this.usersRepository.find({
+      select: [
+        'id',
+        'email',
+        'name',
+        'isEmailVerified',
+        'createdAt',
+        'updatedAt',
+      ],
+    });
+  }
 }

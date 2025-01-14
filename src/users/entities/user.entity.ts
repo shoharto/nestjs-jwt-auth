@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, BeforeInsert } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  BeforeInsert,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 export interface UserProps {
@@ -18,13 +25,13 @@ export class User {
   email!: string;
 
   @Column()
+  name!: string;
+
+  @Column()
   password!: string;
 
-  @Column({ nullable: true })
-  name: string = '';
-
   @Column({ default: false })
-  isEmailVerified: boolean = false;
+  isEmailVerified!: boolean;
 
   @Column({ nullable: true })
   emailVerificationToken?: string;
@@ -37,6 +44,12 @@ export class User {
 
   @Column({ nullable: true })
   passwordResetTokenExpiresAt?: Date;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
 
   constructor(props?: UserProps) {
     if (props) {
@@ -62,7 +75,7 @@ export class User {
 
   toJSON() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _password, ...rest } = this;
-    return rest;
+    const { password: _, ...user } = this;
+    return user;
   }
 }
