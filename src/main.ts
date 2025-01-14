@@ -21,10 +21,9 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
-  const globalPrefix = configService.get<string>('env.apiPrefix') ?? 'api';
-  app.setGlobalPrefix(globalPrefix);
+  const port = configService.get<number>('env.port') ?? 3000;
 
-  // Enable API versioning
+  // Update versioning configuration
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: API_VERSION.V1,
@@ -33,7 +32,6 @@ async function bootstrap() {
 
   const swaggerConfig = configService.get('env.swagger');
   const logger = new Logger('Bootstrap');
-  const port = configService.get<number>('env.port') ?? 3000;
 
   // Swagger configuration
   if (swaggerConfig?.enabled) {
@@ -72,7 +70,7 @@ async function bootstrap() {
 
   // Updated logging with versioned API paths
   logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}/v${API_VERSION.V1}`,
+    `🚀 Application is running on: http://localhost:${port}/api/v${API_VERSION.V1}`,
   );
 
   if (swaggerConfig?.enabled) {
@@ -83,6 +81,20 @@ async function bootstrap() {
 
   logger.log(`🔒 Environment: ${configService.get('NODE_ENV')}`);
   logger.log(`🌐 API Version: v${API_VERSION.V1}`);
+
+  // Debug route registration
+  const server = app.getHttpServer();
+  const router = server._events.request._router;
+  logger.log('Registered Routes:');
+  router.stack.forEach(
+    (layer: { route?: { stack: { method: string }[]; path: string } }) => {
+      if (layer.route) {
+        logger.log(
+          `${layer.route.stack[0].method.toUpperCase()} ${layer.route.path}`,
+        );
+      }
+    },
+  );
 }
 
 bootstrap();
